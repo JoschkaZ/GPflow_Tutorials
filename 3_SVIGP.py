@@ -8,13 +8,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 
-M = 100
+M = 10
 
 
 def func(x):
     return np.sin(x * 3*3.14) + 0.3*np.cos(x * 9*3.14) + 0.5 * np.sin(x * 7*3.14)
-X = rnd.rand(10000, 1) * 2 - 1
-Y = func(X) + rnd.randn(10000, 1) * 0.2 # function + noise
+X = rnd.rand(100, 1) * 2 - 1
+Y = func(X) + rnd.randn(100, 1) * 0.2 # function + noise
 plt.plot(X, Y, 'x')
 plt.show()
 
@@ -38,8 +38,8 @@ print(m)
 
 ground_truth = m.compute_log_likelihood()
 print('\nground truth:\n', ground_truth)
-m.X.set_batch_size(100)
-m.Y.set_batch_size(100)
+m.X.set_batch_size(10)
+m.Y.set_batch_size(10)
 print(m)
 
 # get the log likelyhood for 100 randomly selected batches and plot in histogram
@@ -114,7 +114,7 @@ m.Y.set_batch_size(100)
 m.feature.trainable = False
 opt = gpflow.train.AdamOptimizer()
 #m.minimize(method=tf.train.AdamOptimizer(), maxiter=np.inf, callback=logger)
-opt.minimize(m, maxiter=50000)
+opt.minimize(m, maxiter=1000)
 
 
 plot()
