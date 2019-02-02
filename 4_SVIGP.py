@@ -8,7 +8,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 #plt.style.use('ggplot')
 from mpl_toolkits import mplot3d
-
+import pandas as pd
+pd.set_option('display.expand_frame_repr', False)
 
 
 
@@ -18,18 +19,21 @@ class SVIGP():
 
         # SETTINGS
 
-        self.M = 100 # number of inducing points
+        self.M = 10 # number of inducing points
         self.n_fake = 5000
         self.mini_batch = 100
-        self.training_iterations = 1000
-        self.fake_noise = 0.0
+        self.training_iterations = 5000
+        self.fake_noise = 0.1
 
         self.fake_from = -1.0
         self.fake_to = 1.0
-        self.plot_from = -1.5
-        self.plot_to = 1.5
+        self.plot_from = -2
+        self.plot_to = 2
 
-        self.n_grid = 100
+        self.n_grid = 40
+        self.n_data_shown = 500
+
+        self.ARD = True
 
 
 
@@ -66,16 +70,32 @@ class SVIGP():
         # get noisy function values
         y = []
         for p in self.X:
-            y.append(np.sin(p[0]*4.) + np.sin(p[1]*1.)) # FUNCTION HERE
-        #self.Y = np.reshape(np.array(y) + np.random.normal(0, self.fake_noise), newshape=(self.n_fake, 1))
-        self.Y = np.reshape(np.array(y), newshape=(self.n_fake, 1))
+
+
+
+            #y.append(np.sin(p[0]*4.) + np.sin(p[1]*1.)) # FUNCTION HERE
+            y.append(np.sin(p[0]*5.) + np.sin(p[1]*2000.)) # FUNCTION HERE
+
+
+
+        dy = self.fake_noise + 0.0 * np.random.random(len(y)) #minimum noise + uniform [0:1] -> use as std
+        noise = np.random.normal(0, dy)
+        self.Y = np.reshape(np.array(y) + noise, newshape=(self.n_fake, 1))
+        #self.Y = np.reshape(np.array(y), newshape=(self.n_fake, 1))
 
         # make 2d grid for plotting
         self.grid_A, self.grid_B = np.meshgrid(
             np.linspace(self.plot_from, self.plot_to, self.n_grid),
             np.linspace(self.plot_from, self.plot_to, self.n_grid)
         )
-        self.Y_grid = np.sin(self.grid_A*4.) + np.sin(self.grid_B*1.) # FUNCTION HERE
+
+
+
+        #self.Y_grid = np.sin(self.grid_A*4.) + np.sin(self.grid_B*1.) # FUNCTION HERE
+        self.Y_grid = np.sin(self.grid_A*5.) + np.sin(self.grid_B*2000.) # FUNCTION HERE
+
+
+        self.X_grid = x = np.vstack((self.grid_A.flatten(), self.grid_B.flatten())).T
 
 
         print('fake data made with shapes:')
@@ -112,7 +132,7 @@ class SVIGP():
             variance = 1., # initial value for varance parameter (magnitude)
             lengthscales = 1., # if 1:no ARD, if np.ones(input_dim): yes ARD)
             active_dims = None,  # list of length input_dim: which columns of X are used
-            ARD = None) # if true: one lengthscale per dimension, if false: single lengthscale, otherwise infered
+            ARD = self.ARD) # if true: one lengthscale per dimension, if false: single lengthscale, otherwise infered
 
         self.likelihood = gpflow.likelihoods.Gaussian(
             variance = 1. #initial variance of ehh.... parameter distribution?
@@ -254,6 +274,44 @@ class SVIGP():
 
         plt.show()
 
+    def plot_predictions_2d(self):
+
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+
+        pY, pYv = self.m.predict_y(self.X_grid) # predicts mean and variance
+
+        print(self.X_grid.shape)
+        print(pY.shape)
+        print(pYv.shape)
+
+        # data
+        idx = np.random.randint(0, self.X.shape[0], self.n_data_shown)
+        ax.scatter(self.X[idx][:,0], self.X[idx][:,1], self.Y[idx], c='red', cmap='viridis', linewidth=0.5)
+
+        # true function
+        ax.plot_surface(self.grid_A, self.grid_B, self.Y_grid, rstride=1, cstride=1, edgecolor='black',
+                        color='black', alpha = 0.1)
+
+        # + std
+        ax.plot_surface(self.grid_A, self.grid_B, np.reshape(pY+1.96*pYv, newshape=(self.n_grid, self.n_grid)), rstride=1, cstride=1, edgecolor='red',
+                        color='red', alpha = 0.1)
+
+        # - std
+        ax.plot_surface(self.grid_A, self.grid_B, np.reshape(pY-1.96*pYv, newshape=(self.n_grid, self.n_grid)), rstride=1, cstride=1, edgecolor='red',
+                        color='red', alpha = 0.1)
+
+
+
+
+        #make 2d grid
+        #A,B = np.meshgrid(np.linspace(grid_from, grid_to, n_grid), np.linspace(grid_from, grid_to, n_grid))
+        #y_grid = f_grid(self.grid_A, self.grid_B)
+        #x = np.vstack((A.flatten(), B.flatten())).T
+
+        plt.show()
+
+
     def set_batch_size(self, bs=-1):
         self.m.X.set_batch_size(bs)
         self.m.Y.set_batch_size(bs)
@@ -298,24 +356,31 @@ if __name__ == '__main__':
 
     s = SVIGP()
 
-    s.get_fake_data_1d()
-    s.plot_fake_data_1d()
+    #s.get_fake_data_1d()
+    #s.plot_fake_data_1d()
 
-    #s.get_fake_data_2d()
-    #s.plot_fake_data_2d()
+    s.get_fake_data_2d()
+    s.plot_fake_data_2d()
 
     s.get_inducing_points_random()
 
     s.build_model()
 
-    #s.print_model_attributes()
+    s.print_model_attributes()
     #s.print_kernel_attributes()
 
     s.check_minibatch_ground_truth()
 
     s.test_minibatch_speedup()
 
-    s.plot_predictions_1d()
+    s.plot_predictions_2d()
+    #s.plot_predictions_1d()
 
     s.train()
-    s.plot_predictions_1d()
+    s.plot_predictions_2d()
+
+    s.print_model_attributes()
+    s.print_kernel_attributes()
+
+    print('Model after training: ', self.m.as_pandas_table())
+    # TODO try with and without ARD, try adding a useless feature, etc...
