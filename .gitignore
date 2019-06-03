@@ -1,0 +1,10 @@
+*.csv
+*.pyc
+*.pkl
+*.pdf
+*png
+data
+logs
+outputs
+data - Copy*
+__pycache__*
